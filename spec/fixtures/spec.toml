@@ -19,9 +19,9 @@ negative_underscored = -10_0_0
 
 [floats]
 pi = 3.14159
-# negative = -10.0
-# underscored_pi = 3_00.14_159
-# underscored_negative = -1_0.0_90
+negative = -10.0
+underscored_pi = 3_00.14_159
+underscored_negative = -1_0.0_90
 
 [datetimes]
 # DateTime

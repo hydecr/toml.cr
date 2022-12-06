@@ -111,15 +111,16 @@ class TOML::Lexer
     string = (multiline_basic_string | basic_string | ml_literal_string | literal_string).named(:string)
 
     # Date / DateTime
+    time_delim = char('T') | char(' ')
     local_date = digit.repeat_exactly(4) >> dash >> digit.repeat_exactly(2) >> dash >> digit.repeat_exactly(2)
     local_time = digit.repeat_exactly(2) >> colon >> digit.repeat_exactly(2) >> colon >> digit.repeat_exactly(2) >> (dot >> digit.repeat).maybe
-    local_date_time = (local_date >> char('T') >> local_time).named(:local_date_time)
+    local_date_time = (local_date >> time_delim >> local_time)
     offset_date_time = (
-      (local_date >> char('T') >> local_time >> (plus | minus) >> digit.repeat_exactly(2) >> colon >> digit.repeat_exactly(2)) |
-      (local_date >> char('T') >> local_time >> char('Z'))
+      (local_date >> time_delim >> local_time >> (plus | minus) >> digit.repeat_exactly(2) >> colon >> digit.repeat_exactly(2)) |
+      (local_date >> time_delim >> local_time >> char('Z'))
     )
 
-    date_time = (offset_date_time | local_date_time | local_date | local_time).named(:date_time)
+    date_time = (offset_date_time | local_date_time | local_date | local_time).named(:datetime)
 
     # Arrays
     val = declare
@@ -150,7 +151,7 @@ class TOML::Lexer
     # Standard Table
     std_table_open = l_bracket >> whitespace.repeat
     std_table_close = whitespace.repeat >> r_bracket
-    std_table = std_table_open >> key >> std_table_close
+    std_table = (std_table_open >> key >> std_table_close).named(:std_table)
 
     # Inline Table
     inline_table_open = l_brace >> whitespace.repeat
@@ -169,7 +170,7 @@ class TOML::Lexer
     array_table = (array_table_open >> key >> array_table_close).named(:array_table)
 
     # Table
-    table = (std_table | array_table).named(:table)
+    table = std_table | array_table
 
     # Values
     val.define(string | bool | array | date_time | inline_table | float | integer)

@@ -46,6 +46,12 @@ Spectator.describe TOML::Lexer do
       expect(lexer.token_value(tokens[11])).to eq("-1_0.0_90")
     end
 
+    it "errors on invalid floats" do
+      expect_raises(TOML::TokenizationError) do
+        tokenize("invalid = 3.14.159")
+      end
+    end
+
     it "parses valid integers" do
       input = <<-TOML
       simple = 42
@@ -65,6 +71,196 @@ Spectator.describe TOML::Lexer do
       expect(lexer.token_value(tokens[11])).to eq("10_000_000_010")
       expect(tokens[14][0]).to eq(:integer)
       expect(lexer.token_value(tokens[14])).to eq("-10_0_0")
+    end
+
+    it "errors on invalid integers" do
+      expect_raises(TOML::TokenizationError) do
+        tokenize("invalid = 42_0_0_")
+      end
+    end
+
+    it "parses valid booleans" do
+      input = <<-TOML
+      true = true
+      false = false
+      TOML
+      lexer, tokens = tokenize(input)
+      expect(tokens[2][0]).to eq(:bool)
+      expect(lexer.token_value(tokens[2])).to eq("true")
+      expect(tokens[5][0]).to eq(:bool)
+      expect(lexer.token_value(tokens[5])).to eq("false")
+    end
+
+    it "errors on invalid booleans" do
+      expect_raises(TOML::TokenizationError) do
+        tokenize("invalid = True")
+      end
+      expect_raises(TOML::TokenizationError) do
+        tokenize("invalid = False")
+      end
+    end
+
+    it "parses valid datetimes" do
+      input = <<-TOML
+      lt1 = 07:32:00
+      lt2 = 00:32:00.999999
+
+      ld1 = 1979-05-27
+
+      ldt1 = 1979-05-27T07:32:00
+      ldt2 = 1979-05-27T00:32:00.999999
+
+      odt1 = 1979-05-27T07:32:00Z
+      odt2 = 1979-05-27T00:32:00-07:00
+      odt3 = 1979-05-27T00:32:00.999999-07:00
+      odt4 = 1979-05-27 07:32:00Z
+      TOML
+      lexer, tokens = tokenize(input)
+      expect(tokens[2][0]).to eq(:datetime)
+      expect(lexer.token_value(tokens[2])).to eq("07:32:00")
+      expect(tokens[5][0]).to eq(:datetime)
+      expect(lexer.token_value(tokens[5])).to eq("00:32:00.999999")
+      expect(tokens[8][0]).to eq(:datetime)
+      expect(lexer.token_value(tokens[8])).to eq("1979-05-27")
+      expect(tokens[11][0]).to eq(:datetime)
+      expect(lexer.token_value(tokens[11])).to eq("1979-05-27T07:32:00")
+      expect(tokens[14][0]).to eq(:datetime)
+      expect(lexer.token_value(tokens[14])).to eq("1979-05-27T00:32:00.999999")
+      expect(tokens[17][0]).to eq(:datetime)
+      expect(lexer.token_value(tokens[17])).to eq("1979-05-27T07:32:00Z")
+      expect(tokens[20][0]).to eq(:datetime)
+      expect(lexer.token_value(tokens[20])).to eq("1979-05-27T00:32:00-07:00")
+      expect(tokens[23][0]).to eq(:datetime)
+      expect(lexer.token_value(tokens[23])).to eq("1979-05-27T00:32:00.999999-07:00")
+      expect(tokens[26][0]).to eq(:datetime)
+      expect(lexer.token_value(tokens[26])).to eq("1979-05-27 07:32:00Z")
+    end
+
+    it "errors on invalid datetimes" do
+      expect_raises(TOML::TokenizationError) do
+        tokenize("invalid = 1979-05-27T07:32:00.999999-07:00:00")
+      end
+      expect_raises(TOML::TokenizationError) do
+        tokenize("invalid = 05-27-1979")
+      end
+      expect_raises(TOML::TokenizationError) do
+        tokenize("invalid = 1979-05-27T07:32")
+      end
+    end
+
+    it "parses valid arrays" do
+      input = <<-TOML
+      empty = []
+      simple = [1, 2, 3]
+      nested = [[1, 2], [3, 4, 5]]
+      TOML
+      lexer, tokens = tokenize(input)
+      expect(tokens[2][0]).to eq(:array)
+      expect(lexer.token_value(tokens[2])).to eq("[]")
+      expect(tokens[5][0]).to eq(:array)
+      expect(lexer.token_value(tokens[5])).to eq("[1, 2, 3]")
+      expect(tokens[11][0]).to eq(:array)
+      expect(lexer.token_value(tokens[11])).to eq("[[1, 2], [3, 4, 5]]")
+    end
+
+    it "errors on invalid arrays" do
+      expect_raises(TOML::TokenizationError) do
+        tokenize("invalid = [1, 2, 3")
+      end
+      expect_raises(TOML::TokenizationError) do
+        tokenize("invalid = 1, 2, 3]")
+      end
+    end
+
+    it "parses valid standard tables" do
+      input = <<-TOML
+      [table]
+      [table.subtable]
+      TOML
+      lexer, tokens = tokenize(input)
+      expect(tokens[0][0]).to eq(:std_table)
+      expect(lexer.token_value(tokens[0])).to eq("[table]")
+      expect(tokens[2][0]).to eq(:std_table)
+      expect(lexer.token_value(tokens[2])).to eq("[table.subtable]")
+    end
+
+    it "errors on invalid standard tables" do
+      expect_raises(TOML::TokenizationError) do
+        tokenize("[table")
+      end
+      expect_raises(TOML::TokenizationError) do
+        tokenize("[table.subtable")
+      end
+      expect_raises(TOML::TokenizationError) do
+        tokenize("[table.subtable] invalid")
+      end
+    end
+
+    it "parses valid array tables" do
+      input = <<-TOML
+      [[table.array]]
+      [[table.array]]
+      TOML
+      lexer, tokens = tokenize(input)
+      expect(tokens[0][0]).to eq(:array_table)
+      expect(lexer.token_value(tokens[0])).to eq("[[table.array]]")
+      expect(tokens[2][0]).to eq(:array_table)
+      expect(lexer.token_value(tokens[2])).to eq("[[table.array]]")
+    end
+
+    it "errors on invalid array tables" do
+      expect_raises(TOML::TokenizationError) do
+        tokenize("[[table.array]")
+      end
+      expect_raises(TOML::TokenizationError) do
+        tokenize("[[table.array]] invalid")
+      end
+    end
+
+    it "parses valid inline tables" do
+      input = <<-TOML
+      empty = {}
+      simple = { a = 1, b = 2 }
+      nested = { a = { b = 1 }, c = 2 }
+      TOML
+      lexer, tokens = tokenize(input)
+      expect(tokens[2][0]).to eq(:inline_table)
+      expect(lexer.token_value(tokens[2])).to eq("{}")
+      expect(tokens[5][0]).to eq(:inline_table)
+      expect(lexer.token_value(tokens[5])).to eq("{ a = 1, b = 2 }")
+      expect(tokens[14][0]).to eq(:inline_table)
+      expect(lexer.token_value(tokens[14])).to eq("{ a = { b = 1 }, c = 2 }")
+      expect(tokens[17][0]).to eq(:inline_table)
+      expect(lexer.token_value(tokens[17])).to eq("{ b = 1 }")
+    end
+
+    it "errors on invalid inline tables" do
+      expect_raises(TOML::TokenizationError) do
+        tokenize("invalid = { a = 1, b = 2")
+      end
+      expect_raises(TOML::TokenizationError) do
+        tokenize("invalid = a = 1, b = 2 }")
+      end
+    end
+
+    it "fully ignores comments" do
+      input = <<-TOML
+      # This is a comment
+      key = "value" # This is another comment
+      # This is a multiline comment
+      # that spans multiple lines
+      TOML
+      lexer, tokens = tokenize(input)
+      expect(tokens[1][0]).to eq(:key)
+      expect(lexer.token_value(tokens[1])).to eq("key")
+      expect(tokens[2][0]).to eq(:string)
+      expect(lexer.token_value(tokens[2])).to eq("\"value\"")
+    end
+
+    it "ensures comments cannot be assigned" do
+      expect_raises(TOML::TokenizationError) do
+        tokenize("invalid = # This is a comment")
+      end
     end
   end
 end
